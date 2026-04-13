@@ -79,6 +79,7 @@ interface JobberJobNode {
   jobNumber: number | null;
   title: string | null;
   jobStatus: string;
+  startAt: string | null;
   createdAt: string;
   completedAt: string | null;
   client: { id: string } | null;
@@ -154,6 +155,7 @@ const JOBS_QUERY = `
         jobNumber
         title
         jobStatus
+        startAt
         createdAt
         completedAt
         client { id }
@@ -201,6 +203,7 @@ async function syncJobs(
         jobNumber: j.jobNumber ?? null,
         jobStatus: j.jobStatus,
         assignedTo: null,
+        startAt: safeDate(j.startAt),
         createdAt: safeDate(j.createdAt) ?? new Date(),
         completedAt: safeDate(j.completedAt),
       };
@@ -215,6 +218,7 @@ async function syncJobs(
             jobNumber: jobRow.jobNumber,
             jobStatus: jobRow.jobStatus,
             assignedTo: jobRow.assignedTo,
+            startAt: jobRow.startAt,
             completedAt: jobRow.completedAt,
             jobberClientId: jobRow.jobberClientId,
           },

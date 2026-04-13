@@ -31,6 +31,7 @@ export const jobs = pgTable("cm_jobs", {
   jobNumber: integer("job_number"),
   jobStatus: text("job_status").notNull(),
   assignedTo: text("assigned_to"),
+  startAt: timestamp("start_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
 }, (t) => [

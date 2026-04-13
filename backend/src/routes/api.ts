@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getValidToken } from "../lib/jobberToken";
 import { syncOrg } from "../lib/sync";
+import { detectRecurringContracts } from "../lib/detectContracts";
 
 const router = Router();
 
@@ -66,6 +67,23 @@ router.post("/sync", async (req: Request, res: Response) => {
     res.json(result);
   } catch (err) {
     console.error("[sync] error:", err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+router.get("/detect-contracts", async (req: Request, res: Response) => {
+  const jobberAccountId = req.query.jobberAccountId as string | undefined;
+
+  if (!jobberAccountId) {
+    res.status(400).json({ error: "Missing jobberAccountId query param" });
+    return;
+  }
+
+  try {
+    const suggestions = await detectRecurringContracts(jobberAccountId);
+    res.json(suggestions);
+  } catch (err) {
+    console.error("[detect-contracts] error:", err);
     res.status(500).json({ error: String(err) });
   }
 });
