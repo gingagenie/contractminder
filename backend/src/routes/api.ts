@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { getValidToken } from "../lib/jobberToken";
+import { syncOrg } from "../lib/sync";
 
 const router = Router();
 
@@ -50,6 +51,23 @@ router.get("/me", async (req: Request, res: Response) => {
   }
 
   res.json(body.data.account);
+});
+
+router.post("/sync", async (req: Request, res: Response) => {
+  const { jobberAccountId } = req.body as { jobberAccountId?: string };
+
+  if (!jobberAccountId) {
+    res.status(400).json({ error: "Missing jobberAccountId" });
+    return;
+  }
+
+  try {
+    const result = await syncOrg(jobberAccountId);
+    res.json(result);
+  } catch (err) {
+    console.error("[sync] error:", err);
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 export default router;
