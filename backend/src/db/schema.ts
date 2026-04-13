@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, numeric, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, numeric, unique, date } from "drizzle-orm/pg-core";
 
 export const jobberOrgs = pgTable("cm_jobber_orgs", {
   id: text("id").primaryKey(),
@@ -48,7 +48,35 @@ export const jobLineItems = pgTable("cm_job_line_items", {
   unique("cm_job_line_items_job_name_unique").on(t.jobId, t.name),
 ]);
 
+export const contracts = pgTable("cm_contracts", {
+  id: text("id").primaryKey(),
+  orgId: text("org_id").notNull(),
+  jobberClientId: text("jobber_client_id").notNull(),
+  clientName: text("client_name").notNull(),
+  title: text("title").notNull(),
+  frequency: text("frequency").notNull(), // monthly | quarterly | annual | custom
+  lastJobDate: date("last_job_date"),
+  nextRenewalDate: date("next_renewal_date"),
+  contractValue: numeric("contract_value"),
+  status: text("status").notNull().default("active"), // active | inactive
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique("cm_contracts_org_client_title_unique").on(t.orgId, t.jobberClientId, t.title),
+]);
+
+export const dismissedSuggestions = pgTable("cm_dismissed_suggestions", {
+  id: text("id").primaryKey(),
+  orgId: text("org_id").notNull(),
+  jobberClientId: text("jobber_client_id").notNull(),
+  title: text("title").notNull(),
+  dismissedAt: timestamp("dismissed_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique("cm_dismissed_org_client_title_unique").on(t.orgId, t.jobberClientId, t.title),
+]);
+
 export type JobberOrg = typeof jobberOrgs.$inferSelect;
 export type NewJobberOrg = typeof jobberOrgs.$inferInsert;
 export type Client = typeof clients.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
+export type Contract = typeof contracts.$inferSelect;

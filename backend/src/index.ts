@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import authRouter from "./routes/auth";
 import apiRouter from "./routes/api";
+import contractsRouter from "./routes/contracts";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -21,6 +22,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/auth/jobber", authRouter);
 app.use("/api", apiRouter);
+app.use("/api/contracts", contractsRouter);
 
 app.listen(PORT, () => {
   console.log(`ContractMinder backend running on port ${PORT}`);
