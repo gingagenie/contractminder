@@ -81,6 +81,7 @@ export default function Dashboard() {
   const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
   const [renewingIds, setRenewingIds] = useState<Set<string>>(new Set());
   const [renewingAll, setRenewingAll] = useState(false);
+  const [renewAllMessage, setRenewAllMessage] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
 
   const enc = encodeURIComponent(accountId);
 
@@ -187,13 +188,41 @@ export default function Dashboard() {
 
   async function handleRenewAll() {
     setRenewingAll(true);
+    setRenewAllMessage(null);
     try {
-      await fetch(`${API}/api/contracts/renew-all`, {
+      const res = await fetch(`${API}/api/contracts/renew-all`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobberAccountId: accountId }),
       });
+      const data = await res.json() as {
+        renewed?: number;
+        failed?: number;
+        jobs?: { error?: string; clientName?: string }[];
+        message?: string;
+        error?: string;
+      };
+
+      if (!res.ok || data.error) {
+        setRenewAllMessage({ type: "error", text: data.error ?? "Renewal failed" });
+      } else if ((data.renewed ?? 0) === 0 && (data.failed ?? 0) === 0) {
+        setRenewAllMessage({ type: "info", text: data.message ?? "No contracts are currently due" });
+      } else if (data.failed && data.failed > 0) {
+        const failedNames = data.jobs?.filter(j => j.error).map(j => j.clientName).filter(Boolean).join(", ");
+        setRenewAllMessage({
+          type: "error",
+          text: `${data.renewed} renewed, ${data.failed} failed${failedNames ? `: ${failedNames}` : ""}`,
+        });
+      } else {
+        setRenewAllMessage({
+          type: "success",
+          text: `${data.renewed} contract${(data.renewed ?? 0) !== 1 ? "s" : ""} renewed successfully`,
+        });
+      }
+
       await fetchDashboard();
+    } catch (err) {
+      setRenewAllMessage({ type: "error", text: String(err) });
     } finally {
       setRenewingAll(false);
     }
@@ -258,6 +287,18 @@ export default function Dashboard() {
               <Zap className="h-4 w-4" />
               {renewingAll ? "Renewing…" : "Renew All Due"}
             </Button>
+          </div>
+        )}
+
+        {/* Renew-all result message */}
+        {renewAllMessage && (
+          <div className={`rounded-xl px-5 py-3 text-sm font-medium border ${
+            renewAllMessage.type === "success" ? "bg-green-50 border-green-200 text-green-800" :
+            renewAllMessage.type === "error"   ? "bg-red-50 border-red-200 text-red-800" :
+                                                 "bg-slate-50 border-slate-200 text-slate-600"
+          }`}>
+            {renewAllMessage.text}
+            <button onClick={() => setRenewAllMessage(null)} className="ml-3 opacity-50 hover:opacity-100">✕</button>
           </div>
         )}
 

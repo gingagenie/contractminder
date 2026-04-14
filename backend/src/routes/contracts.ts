@@ -166,27 +166,8 @@ router.get("/", async (req: Request, res: Response) => {
   res.json(result);
 });
 
-// ---------- POST /api/contracts/:contractId/renew ----------
-
-router.post("/:contractId/renew", async (req: Request, res: Response) => {
-  const contractId = req.params.contractId as string;
-  const { jobberAccountId } = req.body as { jobberAccountId?: string };
-
-  if (!jobberAccountId) {
-    res.status(400).json({ error: "Missing jobberAccountId in request body" });
-    return;
-  }
-
-  try {
-    const result = await renewContract(contractId, jobberAccountId);
-    res.json(result);
-  } catch (err) {
-    console.error("[renew] error:", err);
-    res.status(500).json({ error: String(err) });
-  }
-});
-
 // ---------- POST /api/contracts/renew-all ----------
+// MUST be registered before /:contractId/renew to avoid route shadowing
 // Body: { jobberAccountId }
 
 router.post("/renew-all", async (req: Request, res: Response) => {
@@ -208,6 +189,8 @@ router.post("/renew-all", async (req: Request, res: Response) => {
   cutoff.setDate(cutoff.getDate() + 30);
   const cutoffStr = cutoff.toISOString().split("T")[0];
 
+  console.log(`[renew-all] org=${org.id} cutoff=${cutoffStr}`);
+
   const due = await db
     .select()
     .from(contracts)
@@ -219,17 +202,26 @@ router.post("/renew-all", async (req: Request, res: Response) => {
       )
     );
 
+  console.log(`[renew-all] found ${due.length} due contracts:`, due.map(c => `${c.clientName} (${c.nextRenewalDate})`));
+
+  if (due.length === 0) {
+    res.json({ renewed: 0, failed: 0, jobs: [], message: "No contracts are currently due" });
+    return;
+  }
+
   const results: object[] = [];
   let failed = 0;
 
   for (const contract of due) {
+    console.log(`[renew-all] renewing contract ${contract.id} for ${contract.clientName}`);
     try {
       const result = await renewContract(contract.id, jobberAccountId);
+      console.log(`[renew-all] success for ${contract.clientName}:`, result);
       results.push(result);
     } catch (err) {
-      console.error(`[renew-all] failed for contract ${contract.id}:`, err);
+      console.error(`[renew-all] failed for contract ${contract.id} (${contract.clientName}):`, err);
       failed++;
-      results.push({ contractId: contract.id, error: String(err) });
+      results.push({ contractId: contract.id, clientName: contract.clientName, error: String(err) });
     }
   }
 
@@ -238,6 +230,26 @@ router.post("/renew-all", async (req: Request, res: Response) => {
     failed,
     jobs: results,
   });
+});
+
+// ---------- POST /api/contracts/:contractId/renew ----------
+
+router.post("/:contractId/renew", async (req: Request, res: Response) => {
+  const contractId = req.params.contractId as string;
+  const { jobberAccountId } = req.body as { jobberAccountId?: string };
+
+  if (!jobberAccountId) {
+    res.status(400).json({ error: "Missing jobberAccountId in request body" });
+    return;
+  }
+
+  try {
+    const result = await renewContract(contractId, jobberAccountId);
+    res.json(result);
+  } catch (err) {
+    console.error("[renew] error:", err);
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 export default router;
