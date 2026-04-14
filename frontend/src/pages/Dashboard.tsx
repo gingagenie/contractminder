@@ -75,6 +75,7 @@ export default function Dashboard() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [confirmingIds, setConfirmingIds] = useState<Set<string>>(new Set());
   const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
@@ -103,6 +104,21 @@ export default function Dashboard() {
     if (!accountId) { navigate("/"); return; }
     void fetchDashboard();
   }, [accountId, navigate, fetchDashboard]);
+
+  async function handleDisconnect() {
+    if (!window.confirm("Disconnect ContractMinder from Jobber? This will delete all synced data and revoke access. This cannot be undone.")) return;
+    setDisconnecting(true);
+    try {
+      await fetch(`${API}/api/disconnect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobberAccountId: accountId }),
+      });
+    } finally {
+      localStorage.removeItem("jobberAccountId");
+      navigate("/");
+    }
+  }
 
   async function handleSync() {
     setSyncing(true);
@@ -211,6 +227,13 @@ export default function Dashboard() {
             >
               <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
               {syncing ? "Syncing…" : "Sync Jobber"}
+            </button>
+            <button
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+              className="text-xs text-slate-500 hover:text-red-400 transition-colors disabled:opacity-50"
+            >
+              {disconnecting ? "Disconnecting…" : "Disconnect"}
             </button>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { getValidToken } from "../lib/jobberToken";
 import { syncOrg } from "../lib/sync";
 import { detectRecurringContracts } from "../lib/detectContracts";
+import { deleteOrgData } from "../lib/deleteOrg";
 
 const router = Router();
 
@@ -84,6 +85,39 @@ router.get("/detect-contracts", async (req: Request, res: Response) => {
     res.json(suggestions);
   } catch (err) {
     console.error("[detect-contracts] error:", err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+router.post("/disconnect", async (req: Request, res: Response) => {
+  const { jobberAccountId } = req.body as { jobberAccountId?: string };
+
+  if (!jobberAccountId) {
+    res.status(400).json({ error: "Missing jobberAccountId" });
+    return;
+  }
+
+  try {
+    // Best-effort: revoke OAuth tokens via Jobber's appDisconnect mutation
+    const accessToken = await getValidToken(jobberAccountId).catch(() => null);
+    if (accessToken) {
+      await fetch("https://api.getjobber.com/api/graphql", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          "X-JOBBER-GRAPHQL-VERSION": JOBBER_API_VERSION,
+        },
+        body: JSON.stringify({ query: "mutation { appDisconnect { success } }" }),
+      }).catch((err: unknown) =>
+        console.warn("[disconnect] appDisconnect mutation failed:", err)
+      );
+    }
+
+    await deleteOrgData(jobberAccountId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[disconnect] error:", err);
     res.status(500).json({ error: String(err) });
   }
 });

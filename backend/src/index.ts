@@ -4,6 +4,7 @@ import cors from "cors";
 import authRouter from "./routes/auth";
 import apiRouter from "./routes/api";
 import contractsRouter from "./routes/contracts";
+import webhookRouter from "./routes/webhooks";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -14,6 +15,10 @@ const allowedOrigins = [
 ].filter(Boolean) as string[];
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
+
+// Raw body capture for webhook HMAC — MUST be before express.json()
+app.use("/api/webhooks/jobber", express.raw({ type: "application/json" }));
+
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
@@ -23,6 +28,7 @@ app.get("/health", (_req, res) => {
 app.use("/auth/jobber", authRouter);
 app.use("/api", apiRouter);
 app.use("/api/contracts", contractsRouter);
+app.use("/api/webhooks", webhookRouter);
 
 app.listen(PORT, () => {
   console.log(`ContractMinder backend running on port ${PORT}`);
