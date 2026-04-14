@@ -1,5 +1,5 @@
 import { db } from "../db/client";
-import { jobberOrgs, clients, jobs } from "../db/schema";
+import { jobberOrgs, clients, jobs, contracts, dismissedSuggestions } from "../db/schema";
 import { eq } from "drizzle-orm";
 
 // ---------- Types ----------
@@ -86,6 +86,13 @@ export async function detectRecurringContracts(
 
   const clientMap = new Map(orgClients.map((c) => [c.jobberClientId, c]));
 
+  // Build sets of already-confirmed and dismissed client+title combos
+  const confirmedRows = await db.select().from(contracts).where(eq(contracts.orgId, org.id));
+  const dismissedRows = await db.select().from(dismissedSuggestions).where(eq(dismissedSuggestions.orgId, org.id));
+
+  const confirmed = new Set(confirmedRows.map((r) => `${r.jobberClientId}|||${r.title.toLowerCase()}`));
+  const dismissed = new Set(dismissedRows.map((r) => `${r.jobberClientId}|||${r.title.toLowerCase()}`));
+
   // Fetch all jobs for this org that have a title and a client
   // Use startAt (scheduled date) for pattern detection — falls back to createdAt
   const orgJobs = await db
@@ -110,6 +117,7 @@ export async function detectRecurringContracts(
 
   for (const [key, groupJobs] of groups) {
     if (groupJobs.length < 2) continue;
+    if (confirmed.has(key) || dismissed.has(key)) continue;
 
     // Use startAt (scheduled date) where available, fall back to createdAt
     const dateOf = (j: (typeof orgJobs)[number]) =>
