@@ -9,7 +9,7 @@ const router = Router();
 const JOBBER_AUTH_URL = "https://api.getjobber.com/api/oauth/authorize";
 const JOBBER_TOKEN_URL = "https://api.getjobber.com/api/oauth/token";
 const JOBBER_API_VERSION = "2025-04-16";
-const SCOPES = "read_clients read_jobs";
+const SCOPES = "read_clients read_jobs write_jobs";
 
 router.get("/connect", (_req: Request, res: Response) => {
   const params = new URLSearchParams({

@@ -2,7 +2,8 @@ import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import { db } from "../db/client";
 import { jobberOrgs, contracts, dismissedSuggestions } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, lte } from "drizzle-orm";
+import { renewContract } from "../lib/renew";
 
 const router = Router();
 
@@ -163,6 +164,80 @@ router.get("/", async (req: Request, res: Response) => {
   }));
 
   res.json(result);
+});
+
+// ---------- POST /api/contracts/:contractId/renew ----------
+
+router.post("/:contractId/renew", async (req: Request, res: Response) => {
+  const contractId = req.params.contractId as string;
+  const { jobberAccountId } = req.body as { jobberAccountId?: string };
+
+  if (!jobberAccountId) {
+    res.status(400).json({ error: "Missing jobberAccountId in request body" });
+    return;
+  }
+
+  try {
+    const result = await renewContract(contractId, jobberAccountId);
+    res.json(result);
+  } catch (err) {
+    console.error("[renew] error:", err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// ---------- POST /api/contracts/renew-all ----------
+// Body: { jobberAccountId }
+
+router.post("/renew-all", async (req: Request, res: Response) => {
+  const { jobberAccountId } = req.body as { jobberAccountId?: string };
+
+  if (!jobberAccountId) {
+    res.status(400).json({ error: "Missing jobberAccountId" });
+    return;
+  }
+
+  const org = await resolveOrg(jobberAccountId);
+  if (!org) {
+    res.status(404).json({ error: "Org not found" });
+    return;
+  }
+
+  // Find all active contracts due or overdue (next_renewal_date <= today + 30 days)
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() + 30);
+  const cutoffStr = cutoff.toISOString().split("T")[0];
+
+  const due = await db
+    .select()
+    .from(contracts)
+    .where(
+      and(
+        eq(contracts.orgId, org.id),
+        eq(contracts.status, "active"),
+        lte(contracts.nextRenewalDate, cutoffStr)
+      )
+    );
+
+  const results: object[] = [];
+  let failed = 0;
+
+  for (const contract of due) {
+    try {
+      const result = await renewContract(contract.id, jobberAccountId);
+      results.push(result);
+    } catch (err) {
+      console.error(`[renew-all] failed for contract ${contract.id}:`, err);
+      failed++;
+      results.push({ contractId: contract.id, error: String(err) });
+    }
+  }
+
+  res.json({
+    renewed: results.length - failed,
+    failed,
+    jobs: results,
+  });
 });
 
 export default router;
