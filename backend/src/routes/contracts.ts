@@ -221,7 +221,7 @@ router.post("/renew-all", async (req: Request, res: Response) => {
     } catch (err) {
       console.error(`[renew-all] failed for contract ${contract.id} (${contract.clientName}):`, err);
       failed++;
-      results.push({ contractId: contract.id, clientName: contract.clientName, error: String(err) });
+      results.push({ contractId: contract.id, clientName: contract.clientName, error: "Renewal failed" });
     }
   }
 
@@ -248,7 +248,7 @@ router.post("/:contractId/renew", async (req: Request, res: Response) => {
     res.json(result);
   } catch (err) {
     console.error("[renew] error:", err);
-    res.status(500).json({ error: String(err) });
+    res.status(500).json({ error: "Renewal failed" });
   }
 });
 

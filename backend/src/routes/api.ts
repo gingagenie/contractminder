@@ -20,7 +20,8 @@ router.get("/me", async (req: Request, res: Response) => {
   try {
     token = await getValidToken(jobberAccountId);
   } catch (err) {
-    res.status(401).json({ error: String(err) });
+    console.error("[me] getValidToken failed:", err);
+    res.status(401).json({ error: "Not authorised" });
     return;
   }
 
@@ -38,7 +39,8 @@ router.get("/me", async (req: Request, res: Response) => {
 
   if (!gqlRes.ok) {
     const detail = await gqlRes.text();
-    res.status(502).json({ error: "Jobber GraphQL error", detail });
+    console.error("[me] Jobber GraphQL HTTP error:", gqlRes.status, detail);
+    res.status(502).json({ error: "Jobber GraphQL error" });
     return;
   }
 
@@ -48,7 +50,8 @@ router.get("/me", async (req: Request, res: Response) => {
   };
 
   if (body.errors || !body.data?.account) {
-    res.status(502).json({ error: "Unexpected GraphQL response", detail: body });
+    console.error("[me] Unexpected GraphQL response:", body);
+    res.status(502).json({ error: "Unexpected GraphQL response" });
     return;
   }
 
@@ -68,7 +71,7 @@ router.post("/sync", async (req: Request, res: Response) => {
     res.json(result);
   } catch (err) {
     console.error("[sync] error:", err);
-    res.status(500).json({ error: String(err) });
+    res.status(500).json({ error: "Sync failed" });
   }
 });
 
@@ -85,7 +88,7 @@ router.get("/detect-contracts", async (req: Request, res: Response) => {
     res.json(suggestions);
   } catch (err) {
     console.error("[detect-contracts] error:", err);
-    res.status(500).json({ error: String(err) });
+    res.status(500).json({ error: "Contract detection failed" });
   }
 });
 
@@ -118,7 +121,7 @@ router.post("/disconnect", async (req: Request, res: Response) => {
     res.json({ ok: true });
   } catch (err) {
     console.error("[disconnect] error:", err);
-    res.status(500).json({ error: String(err) });
+    res.status(500).json({ error: "Disconnect failed" });
   }
 });
 

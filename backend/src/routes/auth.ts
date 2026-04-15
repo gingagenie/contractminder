@@ -44,7 +44,8 @@ router.get("/callback", async (req: Request, res: Response) => {
 
   if (!tokenRes.ok) {
     const body = await tokenRes.text();
-    res.status(502).json({ error: "Token exchange failed", detail: body });
+    console.error("[callback] Token exchange failed:", tokenRes.status, body);
+    res.status(502).json({ error: "Token exchange failed" });
     return;
   }
 
@@ -73,15 +74,9 @@ router.get("/callback", async (req: Request, res: Response) => {
 
   if (!meRes.ok) {
     console.error("[callback] GraphQL HTTP error", meRes.status, meBody);
-    res.status(502).json({
-      error: "Failed to fetch Jobber account ID",
-      status: meRes.status,
-      detail: meBody,
-    });
+    res.status(502).json({ error: "Failed to fetch Jobber account ID" });
     return;
   }
-
-  console.log("[callback] GraphQL response:", meBody);
 
   const meJson = JSON.parse(meBody) as {
     data?: { account?: { id: string } };
@@ -90,10 +85,7 @@ router.get("/callback", async (req: Request, res: Response) => {
 
   if (meJson.errors || !meJson.data?.account?.id) {
     console.error("[callback] GraphQL errors or missing account.id:", meJson);
-    res.status(502).json({
-      error: "Jobber GraphQL returned no account ID",
-      detail: meJson,
-    });
+    res.status(502).json({ error: "Jobber GraphQL returned no account ID" });
     return;
   }
 
