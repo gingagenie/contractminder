@@ -37,6 +37,7 @@ router.post("/confirm", async (req: Request, res: Response) => {
       jobberClientId: string;
       clientName: string;
       jobTitle: string;
+      propertyAddress?: string;
       detectedFrequency: string;
       lastJobDate: string;
       suggestedRenewalDate: string;
@@ -66,6 +67,7 @@ router.post("/confirm", async (req: Request, res: Response) => {
         jobberClientId: s.jobberClientId,
         clientName: s.clientName,
         title: s.jobTitle,
+        propertyAddress: s.propertyAddress ?? "",
         frequency: s.detectedFrequency,
         lastJobDate: s.lastJobDate,
         nextRenewalDate: s.suggestedRenewalDate,
@@ -74,7 +76,7 @@ router.post("/confirm", async (req: Request, res: Response) => {
         confirmedAt: now,
       })
       .onConflictDoUpdate({
-        target: [contracts.orgId, contracts.jobberClientId, contracts.title],
+        target: [contracts.orgId, contracts.jobberClientId, contracts.title, contracts.propertyAddress],
         set: {
           frequency: s.detectedFrequency,
           lastJobDate: s.lastJobDate,
@@ -94,10 +96,11 @@ router.post("/confirm", async (req: Request, res: Response) => {
 // Body: { jobberAccountId, jobberClientId, jobTitle }
 
 router.post("/dismiss", async (req: Request, res: Response) => {
-  const { jobberAccountId, jobberClientId, jobTitle } = req.body as {
+  const { jobberAccountId, jobberClientId, jobTitle, propertyAddress } = req.body as {
     jobberAccountId?: string;
     jobberClientId?: string;
     jobTitle?: string;
+    propertyAddress?: string;
   };
 
   if (!jobberAccountId || !jobberClientId || !jobTitle) {
@@ -118,6 +121,7 @@ router.post("/dismiss", async (req: Request, res: Response) => {
       orgId: org.id,
       jobberClientId,
       title: jobTitle.trim().toLowerCase(),
+      propertyAddress: propertyAddress ?? "",
     })
     .onConflictDoNothing();
 
@@ -155,6 +159,7 @@ router.get("/", async (req: Request, res: Response) => {
     jobberClientId: c.jobberClientId,
     clientName: c.clientName,
     title: c.title,
+    propertyAddress: c.propertyAddress,
     frequency: c.frequency,
     lastJobDate: c.lastJobDate,
     nextRenewalDate: c.nextRenewalDate,

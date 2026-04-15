@@ -31,6 +31,7 @@ export const jobs = pgTable("cm_jobs", {
   jobNumber: integer("job_number"),
   jobStatus: text("job_status").notNull(),
   assignedTo: text("assigned_to"),
+  propertyAddress: text("property_address").notNull().default(""),
   startAt: timestamp("start_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -54,6 +55,7 @@ export const contracts = pgTable("cm_contracts", {
   jobberClientId: text("jobber_client_id").notNull(),
   clientName: text("client_name").notNull(),
   title: text("title").notNull(),
+  propertyAddress: text("property_address").notNull().default(""),
   frequency: text("frequency").notNull(), // monthly | quarterly | annual | custom
   lastJobDate: date("last_job_date"),
   nextRenewalDate: date("next_renewal_date"),
@@ -62,7 +64,7 @@ export const contracts = pgTable("cm_contracts", {
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-  unique("cm_contracts_org_client_title_unique").on(t.orgId, t.jobberClientId, t.title),
+  unique("cm_contracts_org_client_title_addr_unique").on(t.orgId, t.jobberClientId, t.title, t.propertyAddress),
 ]);
 
 export const dismissedSuggestions = pgTable("cm_dismissed_suggestions", {
@@ -70,9 +72,10 @@ export const dismissedSuggestions = pgTable("cm_dismissed_suggestions", {
   orgId: text("org_id").notNull(),
   jobberClientId: text("jobber_client_id").notNull(),
   title: text("title").notNull(),
+  propertyAddress: text("property_address").notNull().default(""),
   dismissedAt: timestamp("dismissed_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-  unique("cm_dismissed_org_client_title_unique").on(t.orgId, t.jobberClientId, t.title),
+  unique("cm_dismissed_org_client_title_addr_unique").on(t.orgId, t.jobberClientId, t.title, t.propertyAddress),
 ]);
 
 export type JobberOrg = typeof jobberOrgs.$inferSelect;

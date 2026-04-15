@@ -83,6 +83,7 @@ interface JobberJobNode {
   createdAt: string;
   completedAt: string | null;
   client: { id: string } | null;
+  property: { address: { street1: string; city: string | null } | null } | null;
   lineItems: { nodes: JobberLineItem[] };
 }
 
@@ -159,6 +160,7 @@ const JOBS_QUERY = `
         createdAt
         completedAt
         client { id }
+        property { address { street1 city } }
         lineItems {
           nodes {
             name
@@ -194,6 +196,11 @@ async function syncJobs(
     if (nodes.length === 0) break;
 
     for (const j of nodes) {
+      const addrParts = j.property?.address
+        ? [j.property.address.street1, j.property.address.city].filter(Boolean)
+        : [];
+      const propertyAddress = addrParts.join(", ");
+
       const jobRow = {
         id: crypto.randomUUID(),
         orgId,
@@ -203,6 +210,7 @@ async function syncJobs(
         jobNumber: j.jobNumber ?? null,
         jobStatus: j.jobStatus,
         assignedTo: null,
+        propertyAddress,
         startAt: safeDate(j.startAt),
         createdAt: safeDate(j.createdAt) ?? new Date(),
         completedAt: safeDate(j.completedAt),
@@ -218,6 +226,7 @@ async function syncJobs(
             jobNumber: jobRow.jobNumber,
             jobStatus: jobRow.jobStatus,
             assignedTo: jobRow.assignedTo,
+            propertyAddress: jobRow.propertyAddress,
             startAt: jobRow.startAt,
             completedAt: jobRow.completedAt,
             jobberClientId: jobRow.jobberClientId,

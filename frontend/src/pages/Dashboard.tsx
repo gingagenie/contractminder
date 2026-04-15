@@ -11,6 +11,7 @@ interface Suggestion {
   jobberClientId: string;
   clientName: string;
   jobTitle: string;
+  propertyAddress: string;
   detectedFrequency: string;
   lastJobDate: string;
   suggestedRenewalDate: string;
@@ -23,6 +24,7 @@ interface Contract {
   jobberClientId: string;
   clientName: string;
   title: string;
+  propertyAddress: string;
   frequency: string;
   lastJobDate: string | null;
   nextRenewalDate: string | null;
@@ -136,7 +138,7 @@ export default function Dashboard() {
   }
 
   async function handleConfirm(s: Suggestion) {
-    const key = `${s.jobberClientId}|||${s.jobTitle}`;
+    const key = `${s.jobberClientId}|||${s.jobTitle}|||${s.propertyAddress}`;
     setConfirmingIds((p) => new Set(p).add(key));
     try {
       await fetch(`${API}/api/contracts/confirm`, {
@@ -154,7 +156,7 @@ export default function Dashboard() {
   }
 
   async function handleDismiss(s: Suggestion) {
-    const key = `${s.jobberClientId}|||${s.jobTitle}`;
+    const key = `${s.jobberClientId}|||${s.jobTitle}|||${s.propertyAddress}`;
     setDismissingIds((p) => new Set(p).add(key));
     try {
       await fetch(`${API}/api/contracts/dismiss`, {
@@ -164,6 +166,7 @@ export default function Dashboard() {
           jobberAccountId: accountId,
           jobberClientId: s.jobberClientId,
           jobTitle: s.jobTitle,
+          propertyAddress: s.propertyAddress,
         }),
       });
       await fetchDashboard();
@@ -311,7 +314,7 @@ export default function Dashboard() {
             </p>
             <div className="grid gap-3">
               {suggestions.map((s) => {
-                const key = `${s.jobberClientId}|||${s.jobTitle}`;
+                const key = `${s.jobberClientId}|||${s.jobTitle}|||${s.propertyAddress}`;
                 return (
                   <Card key={key} className="border-l-4 border-l-slate-300">
                     <CardContent className="pt-4 pb-4">
@@ -323,7 +326,11 @@ export default function Dashboard() {
                               {capitalize(s.confidence)} confidence
                             </span>
                           </div>
-                          <p className="text-sm text-slate-600 mb-2">{capitalize(s.jobTitle)}</p>
+                          <p className="text-sm text-slate-600">{capitalize(s.jobTitle)}</p>
+                          {s.propertyAddress && (
+                            <p className="text-xs text-slate-400 mt-0.5 mb-2">{s.propertyAddress}</p>
+                          )}
+                          {!s.propertyAddress && <div className="mb-2" />}
                           <div className="flex gap-4 text-xs text-slate-500">
                             <span>Frequency: <strong className="text-slate-700">{capitalize(s.detectedFrequency)}</strong></span>
                             <span>Jobs found: <strong className="text-slate-700">{s.jobCount}</strong></span>
@@ -379,7 +386,11 @@ export default function Dashboard() {
                               {sc.label}
                             </span>
                           </div>
-                          <p className="text-sm text-slate-600 mb-2">{capitalize(c.title)}</p>
+                          <p className="text-sm text-slate-600">{capitalize(c.title)}</p>
+                          {c.propertyAddress && (
+                            <p className="text-xs text-slate-400 mt-0.5 mb-2">{c.propertyAddress}</p>
+                          )}
+                          {!c.propertyAddress && <div className="mb-2" />}
                           <div className="flex gap-4 text-xs text-slate-500">
                             <span>Frequency: <strong className="text-slate-700">{capitalize(c.frequency)}</strong></span>
                             <span>Last job: <strong className="text-slate-700">{formatDate(c.lastJobDate)}</strong></span>

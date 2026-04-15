@@ -11,6 +11,7 @@ export interface ContractSuggestion {
   jobberClientId: string;
   clientName: string;
   jobTitle: string;
+  propertyAddress: string;
   detectedFrequency: DetectedFrequency;
   lastJobDate: string;          // ISO date string
   suggestedRenewalDate: string; // ISO date string
@@ -86,12 +87,12 @@ export async function detectRecurringContracts(
 
   const clientMap = new Map(orgClients.map((c) => [c.jobberClientId, c]));
 
-  // Build sets of already-confirmed and dismissed client+title combos
+  // Build sets of already-confirmed and dismissed client+title+address combos
   const confirmedRows = await db.select().from(contracts).where(eq(contracts.orgId, org.id));
   const dismissedRows = await db.select().from(dismissedSuggestions).where(eq(dismissedSuggestions.orgId, org.id));
 
-  const confirmed = new Set(confirmedRows.map((r) => `${r.jobberClientId}|||${r.title.toLowerCase()}`));
-  const dismissed = new Set(dismissedRows.map((r) => `${r.jobberClientId}|||${r.title.toLowerCase()}`));
+  const confirmed = new Set(confirmedRows.map((r) => `${r.jobberClientId}|||${r.title.toLowerCase()}|||${r.propertyAddress}`));
+  const dismissed = new Set(dismissedRows.map((r) => `${r.jobberClientId}|||${r.title.toLowerCase()}|||${r.propertyAddress}`));
 
   // Fetch all jobs for this org that have a title and a client
   // Use startAt (scheduled date) for pattern detection — falls back to createdAt
@@ -100,14 +101,14 @@ export async function detectRecurringContracts(
     .from(jobs)
     .where(eq(jobs.orgId, org.id));
 
-  // Group by clientId + normalised title
+  // Group by clientId + normalised title + property address
   const groups = new Map<string, typeof orgJobs>();
 
   for (const job of orgJobs) {
     if (!job.jobberClientId || !job.title) continue;
 
     const title = job.title.trim().toLowerCase();
-    const key = `${job.jobberClientId}|||${title}`;
+    const key = `${job.jobberClientId}|||${title}|||${job.propertyAddress}`;
 
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(job);
@@ -139,7 +140,7 @@ export async function detectRecurringContracts(
     const frequency = classifySpacing(avgSpacing);
     const confidence = calcConfidence(groupJobs.length, frequency, spacings);
 
-    const [, rawTitle] = key.split("|||");
+    const [, rawTitle, propertyAddress] = key.split("|||");
     const clientId = sorted[0].jobberClientId!;
     const client = clientMap.get(clientId);
     const lastJob = sorted[sorted.length - 1];
@@ -150,6 +151,7 @@ export async function detectRecurringContracts(
       jobberClientId: clientId,
       clientName: client?.name ?? "Unknown",
       jobTitle: rawTitle,
+      propertyAddress: propertyAddress ?? "",
       detectedFrequency: frequency,
       lastJobDate: lastDate.toISOString().split("T")[0],
       suggestedRenewalDate: renewal.toISOString().split("T")[0],
