@@ -118,45 +118,43 @@ function ContractCard({
   const hasDetail = lineItems.length > 0 || !!c.notes || customFields.length > 0;
 
   return (
-    <Card className={`border-l-4 ${sc.border}`}>
+    <Card
+      className={`border-l-4 ${sc.border}${hasDetail ? " cursor-pointer select-none" : ""}`}
+      onClick={hasDetail ? () => setExpanded((v) => !v) : undefined}
+    >
       <CardContent className="pt-4 pb-4">
 
-        {/* Entire summary area is the click target */}
-        <div
-          className={hasDetail ? "cursor-pointer select-none" : ""}
-          onClick={hasDetail ? () => setExpanded((v) => !v) : undefined}
-        >
-          {/* Name / status / renew row */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                <p className="font-semibold text-slate-800">{c.clientName}</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sc.pill}`}>
-                  {sc.label}
-                </span>
-              </div>
-              <p className="text-sm text-slate-600">{capitalize(c.title)}</p>
-              {c.propertyAddress && (
-                <p className="text-xs text-slate-400 mt-0.5">{c.propertyAddress}</p>
-              )}
+        {/* Name / status / renew row */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              <p className="font-semibold text-slate-800">{c.clientName}</p>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sc.pill}`}>
+                {sc.label}
+              </span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {hasDetail && (
-                <span className="text-slate-400">
-                  {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </span>
-              )}
-              <Button
-                size="sm"
-                onClick={(e) => { e.stopPropagation(); onRenew(); }}
-                disabled={renewing}
-                style={{ backgroundColor: "#1e293b" }}
-              >
-                <Zap className="h-3.5 w-3.5" />
-                {renewing ? "Renewing…" : "Renew"}
-              </Button>
-            </div>
+            <p className="text-sm text-slate-600">{capitalize(c.title)}</p>
+            {c.propertyAddress && (
+              <p className="text-xs text-slate-400 mt-0.5">{c.propertyAddress}</p>
+            )}
           </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {hasDetail && (
+              <span className="text-slate-400">
+                {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </span>
+            )}
+            <Button
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); onRenew(); }}
+              disabled={renewing}
+              style={{ backgroundColor: "#1e293b" }}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              {renewing ? "Renewing…" : "Renew"}
+            </Button>
+          </div>
+        </div>
 
           {/* Stats row */}
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500">
@@ -188,7 +186,6 @@ function ContractCard({
               Last job: <strong className="text-slate-700">{formatDate(c.lastJobDate)}</strong>
             </span>
           </div>
-        </div>
 
         {/* Expanded detail */}
         {expanded && (
