@@ -120,7 +120,7 @@ function ContractCard({
   return (
     <Card
       className={`border-l-4 ${sc.border}${hasDetail ? " cursor-pointer select-none" : ""}`}
-      onClick={hasDetail ? () => setExpanded((v) => !v) : undefined}
+      onClick={hasDetail ? () => { console.log("card clicked", c.id, "expanded:", !expanded); setExpanded((v) => !v); } : undefined}
     >
       <CardContent className="pt-4 pb-4">
 
