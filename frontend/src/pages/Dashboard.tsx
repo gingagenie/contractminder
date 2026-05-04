@@ -122,8 +122,9 @@ function ContractCard({
       className={`border-l-4 ${sc.border} select-none`}
       style={{ cursor: "pointer" }}
       onClick={() => {
-        console.log("card clicked", c.id, { hasDetail, lineItems: lineItems.length, notes: c.notes, customFields: customFields.length });
-        setExpanded((v) => !v);
+        const next = !expanded;
+        console.log("card toggled", { expanded: next, contract: c });
+        setExpanded(next);
       }}
     >
       <CardContent className="pt-4 pb-4">
