@@ -76,7 +76,10 @@ interface JobberLineItem {
 
 interface JobberCustomField {
   label: string;
-  value?: string;
+  valueText?: string;
+  valueArea?: string;
+  valueNumeric?: number;
+  valueDropdown?: string;
   valueBoolean?: boolean;
 }
 
@@ -178,13 +181,11 @@ const JOBS_QUERY = `
           }
         }
         customFields {
-          label
-          ... on CustomFieldText { value }
-          ... on CustomFieldArea { value }
-          ... on CustomFieldNumeric { value }
-          ... on CustomFieldDate { value }
-          ... on CustomFieldDropdown { value }
-          ... on CustomFieldBoolean { valueBoolean }
+          ... on CustomFieldText { label valueText }
+          ... on CustomFieldArea { label valueArea }
+          ... on CustomFieldNumeric { label valueNumeric }
+          ... on CustomFieldDropdown { label valueDropdown }
+          ... on CustomFieldBoolean { label valueBoolean }
         }
       }
       pageInfo { hasNextPage endCursor }
@@ -222,7 +223,13 @@ async function syncJobs(
       const customFieldsJson = j.customFields.length > 0
         ? JSON.stringify(j.customFields.map((cf) => ({
             label: cf.label,
-            value: cf.value ?? (cf.valueBoolean != null ? String(cf.valueBoolean) : ""),
+            value:
+              cf.valueText ??
+              cf.valueArea ??
+              (cf.valueNumeric != null ? String(cf.valueNumeric) : null) ??
+              cf.valueDropdown ??
+              (cf.valueBoolean != null ? String(cf.valueBoolean) : null) ??
+              "",
           })))
         : null;
 
