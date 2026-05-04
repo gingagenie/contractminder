@@ -113,82 +113,88 @@ function ContractCard({
   const sc = statusConfig[c.renewalStatus];
   const price = formatCurrency(c.totalPrice ?? c.contractValue);
   const countdownDays = c.daysUntilRenewal;
-  const hasDetail = c.lineItems.length > 0 || !!c.notes || c.customFields.length > 0;
+  const lineItems = c.lineItems ?? [];
+  const customFields = c.customFields ?? [];
+  const hasDetail = lineItems.length > 0 || !!c.notes || customFields.length > 0;
 
   return (
     <Card className={`border-l-4 ${sc.border}`}>
-      {/* Clickable summary row */}
       <CardContent className="pt-4 pb-4">
+
+        {/* Entire summary area is the click target */}
         <div
-          className={`flex items-start justify-between gap-4 ${hasDetail ? "cursor-pointer select-none" : ""}`}
+          className={hasDetail ? "cursor-pointer select-none" : ""}
           onClick={hasDetail ? () => setExpanded((v) => !v) : undefined}
         >
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-0.5">
-              <p className="font-semibold text-slate-800">{c.clientName}</p>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sc.pill}`}>
-                {sc.label}
-              </span>
+          {/* Name / status / renew row */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <p className="font-semibold text-slate-800">{c.clientName}</p>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sc.pill}`}>
+                  {sc.label}
+                </span>
+              </div>
+              <p className="text-sm text-slate-600">{capitalize(c.title)}</p>
+              {c.propertyAddress && (
+                <p className="text-xs text-slate-400 mt-0.5">{c.propertyAddress}</p>
+              )}
             </div>
-            <p className="text-sm text-slate-600">{capitalize(c.title)}</p>
-            {c.propertyAddress && (
-              <p className="text-xs text-slate-400 mt-0.5">{c.propertyAddress}</p>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {hasDetail && (
+                <span className="text-slate-400">
+                  {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </span>
+              )}
+              <Button
+                size="sm"
+                onClick={(e) => { e.stopPropagation(); onRenew(); }}
+                disabled={renewing}
+                style={{ backgroundColor: "#1e293b" }}
+              >
+                <Zap className="h-3.5 w-3.5" />
+                {renewing ? "Renewing…" : "Renew"}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {hasDetail && (
-              <span className="text-slate-400">
-                {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+
+          {/* Stats row */}
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500">
+            <span>
+              Frequency: <strong className="text-slate-700">{capitalize(c.frequency)}</strong>
+            </span>
+            {price && (
+              <span>
+                Agreed price: <strong className="text-slate-700">{price}</strong>
               </span>
             )}
-            <Button
-              size="sm"
-              onClick={(e) => { e.stopPropagation(); onRenew(); }}
-              disabled={renewing}
-              style={{ backgroundColor: "#1e293b" }}
-            >
-              <Zap className="h-3.5 w-3.5" />
-              {renewing ? "Renewing…" : "Renew"}
-            </Button>
-          </div>
-        </div>
-
-        {/* Stats row — always visible */}
-        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500">
-          <span>
-            Frequency: <strong className="text-slate-700">{capitalize(c.frequency)}</strong>
-          </span>
-          {price && (
             <span>
-              Agreed price: <strong className="text-slate-700">{price}</strong>
+              Next renewal: <strong className="text-slate-700">{formatDate(c.nextRenewalDate)}</strong>
             </span>
-          )}
-          <span>
-            Next renewal: <strong className="text-slate-700">{formatDate(c.nextRenewalDate)}</strong>
-          </span>
-          <span>
-            In:{" "}
-            <strong className={
-              countdownDays !== null && countdownDays < 0 ? "text-red-600" :
-              countdownDays !== null && countdownDays <= 30 ? "text-amber-600" :
-              "text-slate-700"
-            }>
-              {countdownLabel(countdownDays)}
-            </strong>
-          </span>
-          <span>
-            Renewed: <strong className="text-slate-700">{c.timesRenewed}×</strong>
-          </span>
-          <span>
-            Last job: <strong className="text-slate-700">{formatDate(c.lastJobDate)}</strong>
-          </span>
+            <span>
+              In:{" "}
+              <strong className={
+                countdownDays !== null && countdownDays < 0 ? "text-red-600" :
+                countdownDays !== null && countdownDays <= 30 ? "text-amber-600" :
+                "text-slate-700"
+              }>
+                {countdownLabel(countdownDays)}
+              </strong>
+            </span>
+            <span>
+              Renewed: <strong className="text-slate-700">{c.timesRenewed}×</strong>
+            </span>
+            <span>
+              Last job: <strong className="text-slate-700">{formatDate(c.lastJobDate)}</strong>
+            </span>
+          </div>
         </div>
 
         {/* Expanded detail */}
         {expanded && (
           <div className="mt-4 space-y-3">
             {/* Line items */}
-            {c.lineItems.length > 0 && (
+            {lineItems.length > 0 && (
               <div className="border border-slate-100 rounded-lg overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
@@ -200,7 +206,7 @@ function ContractCard({
                     </tr>
                   </thead>
                   <tbody>
-                    {c.lineItems.map((li, i) => {
+                    {lineItems.map((li, i) => {
                       const lineTotal = parseFloat(li.quantity) * parseFloat(li.unitPrice);
                       return (
                         <tr key={i} className="border-t border-slate-100">
@@ -229,9 +235,9 @@ function ContractCard({
             )}
 
             {/* Custom fields */}
-            {c.customFields.length > 0 && (
+            {customFields.length > 0 && (
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                {c.customFields.map((cf, i) => (
+                {customFields.map((cf, i) => (
                   <span key={i}>
                     {cf.label}: <strong className="text-slate-700">{cf.value}</strong>
                   </span>
