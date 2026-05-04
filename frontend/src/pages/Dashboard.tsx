@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { API } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { RefreshCw, Zap } from "lucide-react";
+import { RefreshCw, Zap, ChevronDown, ChevronUp } from "lucide-react";
 
 // ---------- Types ----------
 
@@ -19,6 +19,17 @@ interface Suggestion {
   jobCount: number;
 }
 
+interface LineItem {
+  name: string;
+  quantity: string;
+  unitPrice: string;
+}
+
+interface CustomField {
+  label: string;
+  value: string;
+}
+
 interface Contract {
   id: string;
   jobberClientId: string;
@@ -31,6 +42,12 @@ interface Contract {
   contractValue: string | null;
   confirmedAt: string;
   renewalStatus: "ok" | "due" | "overdue";
+  timesRenewed: number;
+  daysUntilRenewal: number | null;
+  lineItems: LineItem[];
+  totalPrice: string | null;
+  notes: string | null;
+  customFields: CustomField[];
 }
 
 // ---------- Helpers ----------
@@ -40,8 +57,22 @@ function formatDate(iso: string | null | undefined) {
   return new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
+function formatCurrency(value: string | null) {
+  if (!value) return null;
+  const n = parseFloat(value);
+  if (isNaN(n)) return null;
+  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
+}
+
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function countdownLabel(days: number | null): string {
+  if (days === null) return "—";
+  if (days < 0) return `${Math.abs(days)}d overdue`;
+  if (days === 0) return "Due today";
+  return `${days}d`;
 }
 
 const statusConfig = {
@@ -64,6 +95,153 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
       <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
       <span className="text-sm text-slate-400">{count}</span>
     </div>
+  );
+}
+
+// ---------- Contract card ----------
+
+function ContractCard({
+  c,
+  renewing,
+  onRenew,
+}: {
+  c: Contract;
+  renewing: boolean;
+  onRenew: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const sc = statusConfig[c.renewalStatus];
+  const price = formatCurrency(c.totalPrice ?? c.contractValue);
+  const countdownDays = c.daysUntilRenewal;
+  const hasDetail = c.lineItems.length > 0 || !!c.notes || c.customFields.length > 0;
+
+  return (
+    <Card className={`border-l-4 ${sc.border}`}>
+      {/* Clickable summary row */}
+      <CardContent className="pt-4 pb-4">
+        <div
+          className={`flex items-start justify-between gap-4 ${hasDetail ? "cursor-pointer select-none" : ""}`}
+          onClick={hasDetail ? () => setExpanded((v) => !v) : undefined}
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              <p className="font-semibold text-slate-800">{c.clientName}</p>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sc.pill}`}>
+                {sc.label}
+              </span>
+            </div>
+            <p className="text-sm text-slate-600">{capitalize(c.title)}</p>
+            {c.propertyAddress && (
+              <p className="text-xs text-slate-400 mt-0.5">{c.propertyAddress}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {hasDetail && (
+              <span className="text-slate-400">
+                {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </span>
+            )}
+            <Button
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); onRenew(); }}
+              disabled={renewing}
+              style={{ backgroundColor: "#1e293b" }}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              {renewing ? "Renewing…" : "Renew"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats row — always visible */}
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500">
+          <span>
+            Frequency: <strong className="text-slate-700">{capitalize(c.frequency)}</strong>
+          </span>
+          {price && (
+            <span>
+              Agreed price: <strong className="text-slate-700">{price}</strong>
+            </span>
+          )}
+          <span>
+            Next renewal: <strong className="text-slate-700">{formatDate(c.nextRenewalDate)}</strong>
+          </span>
+          <span>
+            In:{" "}
+            <strong className={
+              countdownDays !== null && countdownDays < 0 ? "text-red-600" :
+              countdownDays !== null && countdownDays <= 30 ? "text-amber-600" :
+              "text-slate-700"
+            }>
+              {countdownLabel(countdownDays)}
+            </strong>
+          </span>
+          <span>
+            Renewed: <strong className="text-slate-700">{c.timesRenewed}×</strong>
+          </span>
+          <span>
+            Last job: <strong className="text-slate-700">{formatDate(c.lastJobDate)}</strong>
+          </span>
+        </div>
+
+        {/* Expanded detail */}
+        {expanded && (
+          <div className="mt-4 space-y-3">
+            {/* Line items */}
+            {c.lineItems.length > 0 && (
+              <div className="border border-slate-100 rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500">
+                      <th className="text-left px-3 py-1.5 font-medium">Item</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Qty</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Unit price</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {c.lineItems.map((li, i) => {
+                      const lineTotal = parseFloat(li.quantity) * parseFloat(li.unitPrice);
+                      return (
+                        <tr key={i} className="border-t border-slate-100">
+                          <td className="px-3 py-1.5 text-slate-700">{li.name}</td>
+                          <td className="px-3 py-1.5 text-right text-slate-600">{li.quantity}</td>
+                          <td className="px-3 py-1.5 text-right text-slate-600">
+                            {formatCurrency(li.unitPrice)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right font-medium text-slate-700">
+                            {formatCurrency(String(lineTotal))}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Notes */}
+            {c.notes && (
+              <div className="bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-600 leading-relaxed">
+                <span className="font-medium text-slate-500 uppercase tracking-wide text-[10px]">Notes / Terms</span>
+                <p className="mt-1 whitespace-pre-wrap">{c.notes}</p>
+              </div>
+            )}
+
+            {/* Custom fields */}
+            {c.customFields.length > 0 && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                {c.customFields.map((cf, i) => (
+                  <span key={i}>
+                    {cf.label}: <strong className="text-slate-700">{cf.value}</strong>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -144,10 +322,7 @@ export default function Dashboard() {
       await fetch(`${API}/api/contracts/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobberAccountId: accountId,
-          contracts: [s],
-        }),
+        body: JSON.stringify({ jobberAccountId: accountId, contracts: [s] }),
       });
       await fetchDashboard();
     } finally {
@@ -273,25 +448,39 @@ export default function Dashboard() {
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-10">
 
-        {/* Renew All banner */}
-        {dueContracts.length > 0 && (
-          <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
-            <div>
-              <p className="font-semibold text-amber-900 text-sm">
-                {dueContracts.length} contract{dueContracts.length > 1 ? "s" : ""} due or overdue
-              </p>
-              <p className="text-amber-700 text-xs mt-0.5">Renew them all with one click</p>
-            </div>
-            <Button
-              onClick={handleRenewAll}
-              disabled={renewingAll}
-              className="bg-amber-500 hover:bg-amber-600 text-white border-0"
-            >
-              <Zap className="h-4 w-4" />
-              {renewingAll ? "Renewing…" : "Renew All Due"}
-            </Button>
+        {/* Bulk renew — always visible */}
+        <div className={`flex items-center justify-between rounded-xl px-5 py-4 border ${
+          dueContracts.length > 0
+            ? "bg-amber-50 border-amber-200"
+            : "bg-slate-50 border-slate-200"
+        }`}>
+          <div>
+            {dueContracts.length > 0 ? (
+              <>
+                <p className="font-semibold text-amber-900 text-sm">
+                  {dueContracts.length} contract{dueContracts.length > 1 ? "s" : ""} due or overdue
+                </p>
+                <p className="text-amber-700 text-xs mt-0.5">Renew them all with one click</p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold text-slate-600 text-sm">All contracts are up to date</p>
+                <p className="text-slate-400 text-xs mt-0.5">No renewals due in the next 30 days</p>
+              </>
+            )}
           </div>
-        )}
+          <Button
+            onClick={handleRenewAll}
+            disabled={renewingAll || dueContracts.length === 0}
+            className={dueContracts.length > 0
+              ? "bg-amber-500 hover:bg-amber-600 text-white border-0"
+              : "bg-slate-200 text-slate-400 border-0 cursor-not-allowed"
+            }
+          >
+            <Zap className="h-4 w-4" />
+            {renewingAll ? "Renewing…" : "Renew All Due"}
+          </Button>
+        </div>
 
         {/* Renew-all result message */}
         {renewAllMessage && (
@@ -364,7 +553,7 @@ export default function Dashboard() {
           </section>
         )}
 
-        {/* Contracts */}
+        {/* Active Contracts */}
         <section>
           <SectionHeader title="Active Contracts" count={contracts.length} />
           {contracts.length === 0 ? (
@@ -373,44 +562,14 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="grid gap-3">
-              {contracts.map((c) => {
-                const sc = statusConfig[c.renewalStatus];
-                return (
-                  <Card key={c.id} className={`border-l-4 ${sc.border}`}>
-                    <CardContent className="pt-4 pb-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <p className="font-semibold text-slate-800">{c.clientName}</p>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sc.pill}`}>
-                              {sc.label}
-                            </span>
-                          </div>
-                          <p className="text-sm text-slate-600">{capitalize(c.title)}</p>
-                          {c.propertyAddress && (
-                            <p className="text-xs text-slate-400 mt-0.5 mb-2">{c.propertyAddress}</p>
-                          )}
-                          {!c.propertyAddress && <div className="mb-2" />}
-                          <div className="flex gap-4 text-xs text-slate-500">
-                            <span>Frequency: <strong className="text-slate-700">{capitalize(c.frequency)}</strong></span>
-                            <span>Last job: <strong className="text-slate-700">{formatDate(c.lastJobDate)}</strong></span>
-                            <span>Next renewal: <strong className="text-slate-700">{formatDate(c.nextRenewalDate)}</strong></span>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={() => handleRenew(c.id)}
-                          disabled={renewingIds.has(c.id)}
-                          style={{ backgroundColor: "#1e293b" }}
-                        >
-                          <Zap className="h-3.5 w-3.5" />
-                          {renewingIds.has(c.id) ? "Renewing…" : "Renew"}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {contracts.map((c) => (
+                <ContractCard
+                  key={c.id}
+                  c={c}
+                  renewing={renewingIds.has(c.id)}
+                  onRenew={() => handleRenew(c.id)}
+                />
+              ))}
             </div>
           )}
         </section>

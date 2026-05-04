@@ -1,6 +1,6 @@
 import { db } from "../db/client";
 import { contracts } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getValidToken } from "./jobberToken";
 
 const JOBBER_GRAPHQL_URL = "https://api.getjobber.com/api/graphql";
@@ -134,7 +134,11 @@ export async function renewContract(
 
   await db
     .update(contracts)
-    .set({ lastJobDate: today, nextRenewalDate: newRenewalDate })
+    .set({
+      lastJobDate: today,
+      nextRenewalDate: newRenewalDate,
+      timesRenewed: sql`${contracts.timesRenewed} + 1`,
+    })
     .where(eq(contracts.id, contractId));
 
   return {

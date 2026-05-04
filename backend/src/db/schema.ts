@@ -35,6 +35,8 @@ export const jobs = pgTable("cm_jobs", {
   startAt: timestamp("start_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
+  notes: text("notes"),
+  customFields: text("custom_fields"), // JSON: [{label, value}]
 }, (t) => [
   unique("cm_jobs_org_jobber_job_unique").on(t.orgId, t.jobberJobId),
 ]);
@@ -63,6 +65,7 @@ export const contracts = pgTable("cm_contracts", {
   status: text("status").notNull().default("active"), // active | inactive
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  timesRenewed: integer("times_renewed").notNull().default(0),
 }, (t) => [
   unique("cm_contracts_org_client_title_addr_unique").on(t.orgId, t.jobberClientId, t.title, t.propertyAddress),
 ]);

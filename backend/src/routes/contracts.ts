@@ -1,8 +1,8 @@
 import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import { db } from "../db/client";
-import { jobberOrgs, contracts, dismissedSuggestions } from "../db/schema";
-import { eq, and, lte } from "drizzle-orm";
+import { jobberOrgs, contracts, dismissedSuggestions, jobs, jobLineItems } from "../db/schema";
+import { eq, and, lte, desc } from "drizzle-orm";
 import { renewContract } from "../lib/renew";
 
 const router = Router();
@@ -154,18 +154,71 @@ router.get("/", async (req: Request, res: Response) => {
       )
     );
 
-  const result = rows.map((c) => ({
-    id: c.id,
-    jobberClientId: c.jobberClientId,
-    clientName: c.clientName,
-    title: c.title,
-    propertyAddress: c.propertyAddress,
-    frequency: c.frequency,
-    lastJobDate: c.lastJobDate,
-    nextRenewalDate: c.nextRenewalDate,
-    contractValue: c.contractValue,
-    confirmedAt: c.confirmedAt,
-    renewalStatus: renewalStatus(c.nextRenewalDate),
+  const result = await Promise.all(rows.map(async (c) => {
+    // Find the most recent synced job matching this contract
+    const [latestJob] = await db
+      .select()
+      .from(jobs)
+      .where(
+        and(
+          eq(jobs.orgId, org.id),
+          eq(jobs.jobberClientId, c.jobberClientId),
+          eq(jobs.title, c.title)
+        )
+      )
+      .orderBy(desc(jobs.startAt))
+      .limit(1);
+
+    let lineItems: { name: string; quantity: string; unitPrice: string }[] = [];
+    let totalPrice: string | null = null;
+
+    if (latestJob) {
+      const items = await db
+        .select()
+        .from(jobLineItems)
+        .where(eq(jobLineItems.jobId, latestJob.id));
+
+      lineItems = items.map((li) => ({
+        name: li.name,
+        quantity: li.quantity,
+        unitPrice: li.unitPrice,
+      }));
+
+      const total = items.reduce(
+        (sum, li) => sum + parseFloat(li.quantity) * parseFloat(li.unitPrice),
+        0
+      );
+      if (total > 0) totalPrice = total.toFixed(2);
+    }
+
+    let daysUntilRenewal: number | null = null;
+    if (c.nextRenewalDate) {
+      const diff = new Date(c.nextRenewalDate).getTime() - Date.now();
+      daysUntilRenewal = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    }
+
+    const customFields: { label: string; value: string }[] =
+      latestJob?.customFields ? (JSON.parse(latestJob.customFields) as { label: string; value: string }[]) : [];
+
+    return {
+      id: c.id,
+      jobberClientId: c.jobberClientId,
+      clientName: c.clientName,
+      title: c.title,
+      propertyAddress: c.propertyAddress,
+      frequency: c.frequency,
+      lastJobDate: c.lastJobDate,
+      nextRenewalDate: c.nextRenewalDate,
+      contractValue: c.contractValue,
+      confirmedAt: c.confirmedAt,
+      renewalStatus: renewalStatus(c.nextRenewalDate),
+      timesRenewed: c.timesRenewed,
+      daysUntilRenewal,
+      lineItems,
+      totalPrice,
+      notes: latestJob?.notes ?? null,
+      customFields,
+    };
   }));
 
   res.json(result);

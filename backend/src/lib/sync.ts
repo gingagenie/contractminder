@@ -74,17 +74,25 @@ interface JobberLineItem {
   unitPrice: number;
 }
 
+interface JobberCustomField {
+  label: string;
+  value?: string;
+  valueBoolean?: boolean;
+}
+
 interface JobberJobNode {
   id: string;
   jobNumber: number | null;
   title: string | null;
   jobStatus: string;
+  instructions: string | null;
   startAt: string | null;
   createdAt: string;
   completedAt: string | null;
   client: { id: string } | null;
   property: { address: { street1: string; city: string | null } | null } | null;
   lineItems: { nodes: JobberLineItem[] };
+  customFields: JobberCustomField[];
 }
 
 // ---------- Client sync ----------
@@ -156,6 +164,7 @@ const JOBS_QUERY = `
         jobNumber
         title
         jobStatus
+        instructions
         startAt
         createdAt
         completedAt
@@ -167,6 +176,15 @@ const JOBS_QUERY = `
             quantity
             unitPrice
           }
+        }
+        customFields {
+          label
+          ... on CustomFieldText { value }
+          ... on CustomFieldArea { value }
+          ... on CustomFieldNumeric { value }
+          ... on CustomFieldDate { value }
+          ... on CustomFieldDropdown { value }
+          ... on CustomFieldBoolean { valueBoolean }
         }
       }
       pageInfo { hasNextPage endCursor }
@@ -201,6 +219,13 @@ async function syncJobs(
         : [];
       const propertyAddress = addrParts.join(", ");
 
+      const customFieldsJson = j.customFields.length > 0
+        ? JSON.stringify(j.customFields.map((cf) => ({
+            label: cf.label,
+            value: cf.value ?? (cf.valueBoolean != null ? String(cf.valueBoolean) : ""),
+          })))
+        : null;
+
       const jobRow = {
         id: crypto.randomUUID(),
         orgId,
@@ -214,6 +239,8 @@ async function syncJobs(
         startAt: safeDate(j.startAt),
         createdAt: safeDate(j.createdAt) ?? new Date(),
         completedAt: safeDate(j.completedAt),
+        notes: j.instructions ?? null,
+        customFields: customFieldsJson,
       };
 
       const [upsertedJob] = await db
@@ -230,6 +257,8 @@ async function syncJobs(
             startAt: jobRow.startAt,
             completedAt: jobRow.completedAt,
             jobberClientId: jobRow.jobberClientId,
+            notes: jobRow.notes,
+            customFields: jobRow.customFields,
           },
         })
         .returning({ id: jobs.id });
